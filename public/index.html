@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PesaFX — Forex Trading Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#0b1020;--panel:#121832;--panel2:#1a2142;--border:#262e55;
+  --text:#e6e9f5;--muted:#8b93b8;--accent:#22d3a6;--danger:#f43f5e;
+  --warn:#f59e0b;--up:#22c55e;--down:#ef4444;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+a{color:var(--accent);text-decoration:none}
+.topbar{display:flex;align-items:center;gap:16px;padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.logo{font-weight:700;font-size:18px;display:flex;align-items:center;gap:8px}
+.logo .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+.nav{display:flex;gap:6px;margin-left:20px}
+.nav button{background:transparent;border:0;color:var(--muted);padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit}
+.nav button.active,.nav button:hover{background:var(--panel2);color:var(--text)}
+.spacer{flex:1}
+.account{display:flex;gap:16px;align-items:center;font-family:'JetBrains Mono',monospace;font-size:13px}
+.account .bal{color:var(--accent)}
+.grid{display:grid;grid-template-columns:260px 1fr 320px;gap:12px;padding:12px 20px}
+@media(max-width:1100px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}
+.card h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px}
+.watch{list-style:none}
+.watch li{display:flex;justify-content:space-between;align-items:center;padding:8px 6px;border-bottom:1px solid var(--border);cursor:pointer}
+.watch li:hover{background:var(--panel2);border-radius:6px}
+.watch .sym{font-weight:600}
+.watch .price{font-family:'JetBrains Mono',monospace}
+.watch .chg{font-size:12px}
+.up{color:var(--up)} .down{color:var(--down)}
+.chartwrap{height:420px;position:relative}
+#tv_chart{width:100%;height:100%}
+.right .section{margin-bottom:12px}
+.orderform label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.orderform input,.orderform select{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:8px;margin-bottom:10px;font:inherit}
+.orderform .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{width:100%;padding:10px;border:0;border-radius:8px;font-weight:600;cursor:pointer;font:inherit}
+.btn.buy{background:var(--up);color:#0b1020}
+.btn.sell{background:var(--down);color:#fff}
+.tabs{display:flex;gap:4px;margin-bottom:8px}
+.tabs button{flex:1;background:var(--panel2);border:1px solid var(--border);color:var(--muted);padding:6px;border-radius:6px;cursor:pointer;font-size:12px}
+.tabs button.active{background:var(--accent);color:#0b1020;border-color:var(--accent)}
+.table{width:100%;border-collapse:collapse;font-size:12px}
+.table th,.table td{padding:6px 4px;text-align:left;border-bottom:1px solid var(--border)}
+.table th{color:var(--muted);font-weight:500}
+.pos{margin-bottom:6px;padding:8px;background:var(--panel2);border-radius:8px;font-size:12px}
+.pos .top{display:flex;justify-content:space-between;margin-bottom:4px}
+.pos .pl{font-family:'JetBrains Mono',monospace}
+.empty{color:var(--muted);font-size:12px;text-align:center;padding:12px}
+.footer{padding:12px 20px;color:var(--muted);font-size:12px;border-top:1px solid var(--border);margin-top:12px}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--panel2);border:1px solid var(--accent);padding:12px 16px;border-radius:8px;display:none;z-index:100}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo"><span class="dot"></span>PesaFX</div>
+  <div class="nav">
+    <button class="active" onclick="showTab('trade')">Trade</button>
+    <button onclick="showTab('portfolio')">Portfolio</button>
+    <button onclick="showTab('history')">History</button>
+    <button onclick="showTab('account')">Account</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="account">
+    <span>Balance: <span class="bal" id="bal">$10,000.00</span></span>
+    <span id="clock"></span>
+  </div>
+</div>
+
+<div class="grid" id="view-trade">
+  <div class="card">
+    <h3>Watchlist</h3>
+    <ul class="watch" id="watch"></ul>
+    <button class="btn" style="margin-top:8px;background:var(--panel2);color:var(--text)" onclick="refreshPrices()">↻ Refresh prices</button>
+  </div>
+  <div class="card">
+    <h3>Chart — <span id="symLabel">EUR/USD</span></h3>
+    <div class="chartwrap"><div id="tv_chart"></div></div>
+  </div>
+  <div class="card right">
+    <div class="section">
+      <h3>Order Entry</h3>
+      <div class="orderform">
+        <label>Symbol</label>
+        <select id="oSym"></select>
+        <label>Type</label>
+        <select id="oType"><option>Market</option><option>Limit</option></select>
+        <div class="row">
+          <div><label>Side</label>
+            <select id="oSide"><option>Buy</option><option>Sell</option></select></div>
+          <div><label>Lots</label><input id="oLots" type="number" step="0.01" value="0.10"/></div>
+        </div>
+        <label>Price (limit)</label>
+        <input id="oPrice" type="number" step="0.00001" placeholder="market price"/>
+        <div class="row">
+          <div><label>Stop Loss</label><input id="oSL" type="number" step="0.00001"/></div>
+          <div><label>Take Profit</label><input id="oTP" type="number" step="0.00001"/></div>
+        </div>
+        <button class="btn buy" id="btnBuy" onclick="placeOrder('Buy')">Buy</button>
+        <button class="btn sell" style="margin-top:6px" onclick="placeOrder('Sell')">Sell</button>
+      </div>
+    </div>
+    <div class="section">
+      <h3>Open Positions</h3>
+      <div id="positions"></div>
+    </div>
+  </div>
+</div>
+
+<div class="grid" id="view-portfolio" style="display:none">
+  <div class="card" style="grid-column:1/-1">
+    <h3>Portfolio Summary</h3>
+    <div id="portSummary"></div>
+    <h3 style="margin-top:12px">Open Positions</h3>
+    <div id="portPositions"></div>
+  </div>
+</div>
+
+<div class="grid" id="view-history" style="display:none">
+  <div class="card" style="grid-column:1/-1">
+    <h3>Trade History</h3>
+    <table class="table"><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Lots</th><th>Price</th><th>P&L</th></tr></thead><tbody id="histBody"></tbody></table>
+    <button class="btn" style="margin-top:10px;background:var(--panel2);color:var(--text)" onclick="clearHistory()">Clear history</button>
+  </div>
+</div>
+
+<div class="grid" id="view-account" style="display:none">
+  <div class="card" style="grid-column:1/-1">
+    <h3>Account</h3>
+    <div id="accountInfo"></div>
+  </div>
+</div>
+
+<div class="footer">PesaFX — paper trading demo. Prices from Frankfurter (ECB). Charts by TradingView. Not financial advice.</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://s3.tradingview.com/tv.js"></script>
+<script>
+const PAIRS = [
+  {sym:'EUR/USD',base:'EUR',quote:'USD'},
+  {sym:'GBP/USD',base:'GBP',quote:'USD'},
+  {sym:'USD/JPY',base:'USD',quote:'JPY'},
+  {sym:'USD/CHF',base:'USD',quote:'CHF'},
+  {sym:'AUD/USD',base:'AUD',quote:'USD'},
+  {sym:'USD/CAD',base:'USD',quote:'CAD'},
+  {sym:'NZD/USD',base:'NZD',quote:'USD'},
+  {sym:'XAU/USD',base:'XAU',quote:'USD',gold:true},
+];
+let prices = {};
+let selected = 'EUR/USD';
+let state = JSON.parse(localStorage.getItem('pesafx')||'{"balance":10000,"positions":[],"history":[]}');
+
+function save(){localStorage.setItem('pesafx',JSON.stringify(state));renderAll();}
+
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2500);}
+
+function showTab(t){
+  ['trade','portfolio','history','account'].forEach(v=>{
+    document.getElementById('view-'+v).style.display = v===t?'grid':'none';
+  });
+  document.querySelectorAll('.nav button').forEach((b,i)=>{
+    const names=['trade','portfolio','history','account'];
+    b.classList.toggle('active',names[i]===t);
+  });
+}
+
+async function refreshPrices(){
+  // Frankfurter latest for EUR base
+  try{
+    const r = await fetch('https://api.frankfurter.app/latest?from=EUR&to=USD,GBP,CHF,JPY,CAD,AUD,NZD');
+    const j = await r.json();
+    const eur = j.rates;
+    // build cross rates approx via EUR
+    const eurUsd = eur.USD;
+    prices['EUR/USD'] = eurUsd;
+    prices['GBP/USD'] = eur.USD/eur.GBP;
+    prices['USD/JPY'] = eur.JPY/eur.USD;
+    prices['USD/CHF'] = eur.CHF/eur.USD;
+    prices['AUD/USD'] = eur.USD/eur.AUD;
+    prices['USD/CAD'] = eur.CAD/eur.USD;
+    prices['NZD/USD'] = eur.USD/eur.NZD;
+    // gold via a simple fallback (frankfurter doesn't do XAU); use cached/mock
+    if(!prices['XAU/USD']) prices['XAU/USD']=2320.50;
+    // small random walk for demo feel
+    PAIRS.forEach(p=>{
+      if(p.sym!=='XAU/USD'){
+        const noise = (Math.random()-0.5)*0.0008;
+        prices[p.sym] = +(prices[p.sym]+noise).toFixed(p.sym==='USD/JPY'?3:5);
+      }
+    });
+    prices['XAU/USD'] = +(prices['XAU/USD']+(Math.random()-0.5)*2).toFixed(2);
+  }catch(e){
+    // fallback mock
+    if(!prices['EUR/USD']){prices['EUR/USD']=1.0825;prices['GBP/USD']=1.2640;prices['USD/JPY']=151.20;prices['USD/CHF']=0.8910;prices['AUD/USD']=0.6520;prices['USD/CAD']=1.3710;prices['NZD/USD']=0.5980;prices['XAU/USD']=2320.50;}
+  }
+  renderWatch();
+}
+
+function renderWatch(){
+  const ul=document.getElementById('watch');
+  ul.innerHTML='';
+  PAIRS.forEach(p=>{
+    const pr=prices[p.sym];
+    const li=document.createElement('li');
+    li.onclick=()=>selectSymbol(p.sym);
+    li.innerHTML=`<span class="sym">${p.sym}</span><span class="price">${pr!==undefined?pr.toFixed(p.sym==='USD/JPY'?3:p.sym==='XAU/USD'?2:5):'—'}</span><span class="chg ${Math.random()>.5?'up':'down'}">${(Math.random()*0.3).toFixed(2)}%</span>`;
+    ul.appendChild(li);
+  });
+  const sel=document.getElementById('oSym');
+  const cur=sel.value;
+  sel.innerHTML=PAIRS.map(p=>`<option>${p.sym}</option>`).join('');
+  if(cur) sel.value=cur;
+}
+
+function selectSymbol(s){
+  selected=s;
+  document.getElementById('symLabel').textContent=s;
+  loadChart(s);
+}
+
+function loadChart(sym){
+  const el=document.getElementById('tv_chart');
+  el.innerHTML='';
+  const map={'EUR/USD':'FX:EURUSD','GBP/USD':'FX:GBPUSD','USD/JPY':'FX:USDJPY','USD/CHF':'FX:USDCHF','AUD/USD':'FX:AUDUSD','USD/CAD':'FX:USDCAD','NZD/USD':'FX:NZDUSD','XAU/USD':'OANDA:XAUUSD'};
+  new TradingView.widget({
+    "width":"100%","height":"100%","symbol":map[sym]||'FX:EURUSD',
+    "interval":"60","timezone":"Etc/UTC","theme":"dark","style":"1",
+    "locale":"en","toolbar_bg":"#121832","enable_publishing":false,
+    "hide_side_toolbar":false,"allow_symbol_change":true,
+    "container_id":"tv_chart"
+  });
+}
+
+function pipValue(sym){return sym==='USD/JPY'||sym==='XAU/USD'?0.01:0.0001;}
+
+function placeOrder(side){
+  const sym=document.getElementById('oSym').value;
+  const lots=parseFloat(document.getElementById('oLots').value)||0.01;
+  const type=document.getElementById('oType').value;
+  const priceInput=document.getElementById('oPrice').value;
+  const sl=document.getElementById('oSL').value;
+  const tp=document.getElementById('oTP').value;
+  const mkt=prices[sym];
+  let entry = type==='Market' ? mkt : (priceInput?parseFloat(priceInput):mkt);
+  const pos={id:Date.now(),sym,side:side,lots,entry,sl:sl?parseFloat(sl):null,tp:tp?parseFloat(tp):null,time:new Date().toISOString(),status:'open'};
+  state.positions.push(pos);
+  save();
+  toast(`${side} ${lots} ${sym} @ ${entry}`);
+}
+
+function closePosition(id){
+  const idx=state.positions.findIndex(p=>p.id===id);
+  if(idx<0)return;
+  const p=state.positions[idx];
+  const exit=prices[p.sym];
+  const diff = p.side==='Buy' ? (exit-p.entry) : (p.entry-exit);
+  const pv = p.sym==='XAU/USD'?100 : (p.sym==='USD/JPY'?1000:100000);
+  const pnl = diff * p.lots * (p.sym==='XAU/USD'?100: (p.sym.endsWith('JPY')?1000:100000));
+  // normalize: lots * pip diff * pip value in USD
+  const pnlUsd = p.side==='Buy' ? (exit-p.entry)*p.lots*100000 : (p.entry-exit)*p.lots*100000;
+  state.balance += pnlUsd;
+  state.history.unshift({time:new Date().toISOString(),sym:p.sym,side:p.side,lots:p.lots,price:exit,pnl:pnlUsd});
+  state.positions.splice(idx,1);
+  save();
+  toast(`Closed ${p.sym} P&L $${pnlUsd.toFixed(2)}`);
+}
+
+function renderPositions(){
+  const box=document.getElementById('positions');
+  const pbox=document.getElementById('portPositions');
+  if(!state.positions.length){box.innerHTML='<div class="empty">No open positions</div>';pbox.innerHTML='<div class="empty">No open positions</div>';return;}
+  let html='';
+  state.positions.forEach(p=>{
+    const cur=prices[p.sym];
+    const pnl = p.side==='Buy' ? (cur-p.entry)*p.lots*100000 : (p.entry-cur)*p.lots*100000;
+    const cls = pnl>=0?'up':'down';
+    html+=`<div class="pos">
+      <div class="top"><span>${p.side} ${p.lots} ${p.sym}</span><span class="${cls} pl">${pnl>=0?'+':''}$${pnl.toFixed(2)}</span></div>
+      <div style="color:var(--muted)">entry ${p.entry} · now ${cur}</div>
+      <button onclick="closePosition(${p.id})" style="margin-top:6px;background:var(--panel);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px">Close</button>
+    </div>`;
+  });
+  box.innerHTML=html; pbox.innerHTML=html;
+}
+
+function renderHistory(){
+  const tb=document.getElementById('histBody');
+  tb.innerHTML=state.history.map(h=>`<tr><td>${new Date(h.time).toLocaleString()}</td><td>${h.sym}</td><td>${h.side}</td><td>${h.lots}</td><td>${h.price}</td><td class="${h.pnl>=0?'up':'down'}">${h.pnl>=0?'+':''}$${h.pnl.toFixed(2)}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">No trades yet</td></tr>';
+}
+
+function renderAccount(){
+  document.getElementById('accountInfo').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      <div><div style="color:var(--muted);font-size:12px">Balance</div><div style="font-size:22px;font-weight:700;color:var(--accent)">$${state.balance.toFixed(2)}</div></div>
+      <div><div style="color:var(--muted);font-size:12px">Open Positions</div><div style="font-size:22px;font-weight:700">${state.positions.length}</div></div>
+      <div><div style="color:var(--muted);font-size:12px">Total Trades</div><div style="font-size:22px;font-weight:700">${state.history.length}</div></div>
+    </div>
+    <p style="margin-top:12px;color:var(--muted);font-size:12px">Starting balance $10,000.00 · Paper trading only. Reset by clearing browser storage.</p>`;
+  document.getElementById('portSummary').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+      <div><div style="color:var(--muted);font-size:12px">Equity</div><div style="font-size:20px;font-weight:700;color:var(--accent)">$${(state.balance+state.positions.reduce((a,p)=>a+((p.side==='Buy'?(prices[p.sym]-p.entry):(p.entry-prices[p.sym]))*p.lots*100000,0)).toFixed(2)}</div></div>
+      <div><div style="color:var(--muted);font-size:12px">Balance</div><div style="font-size:20px;font-weight:700">$${state.balance.toFixed(2)}</div></div>
+      <div><div style="color:var(--muted);font-size:12px">Open P&L</div><div style="font-size:20px;font-weight:700">${state.positions.reduce((a,p)=>a+((p.side==='Buy'?(prices[p.sym]-p.entry):(p.entry-prices[p.sym]))*p.lots*100000,0).toFixed(2)}</div></div>
+      <div><div style="color:var(--muted);font-size:12px">Margin Used</div><div style="font-size:20px;font-weight:700">$${(state.positions.reduce((a,p)=>a+p.lots*1000,0)).toFixed(2)}</div></div>
+    </div>`;
+}
+
+function renderAll(){
+  document.getElementById('bal').textContent='$'+state.balance.toFixed(2);
+  renderPositions();
+  renderHistory();
+  renderAccount();
+}
+
+function clearHistory(){state.history=[];save();toast('History cleared');}
+
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString();},1000);
+setInterval(refreshPrices,30000);
+
+// init
+refreshPrices().then(()=>{renderAll();loadChart(selected);});
+</script>
+</body>
+</html>
+EOF
+echo "written"; wc -l index.html
