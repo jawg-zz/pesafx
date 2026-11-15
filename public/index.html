@@ -308,7 +308,7 @@ function renderAccount(){
   var margin = state.positions.reduce(function(a,p){return a+p.lots*1000;},0);
   document.getElementById('accountInfo').innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-      <div><div style="color:var(--muted);font-size:12px">Balance</div><div style="font-size:22px;font-weight:700;color:var(--accent)">$${state.balance.toFixed(2)}</div></div>
+      <div><div style="color:var(--muted);font-size:12px">Balance</div><div style="font-size:22px;font-weight:700;color:var(--accent)">$${state.balance.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
       <div><div style="color:var(--muted);font-size:12px">Open Positions</div><div style="font-size:22px;font-weight:700">${state.positions.length}</div></div>
       <div><div style="color:var(--muted);font-size:12px">Total Trades</div><div style="font-size:22px;font-weight:700">${state.history.length}</div></div>
     </div>
@@ -316,14 +316,14 @@ function renderAccount(){
   document.getElementById('portSummary').innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
       <div><div style="color:var(--muted);font-size:12px">Equity</div><div style="font-size:20px;font-weight:700;color:var(--accent)">$${equity.toFixed(2)}</div></div>
-      <div><div style="color:var(--muted);font-size:12px">Balance</div><div style="font-size:20px;font-weight:700">$${state.balance.toFixed(2)}</div></div>
+      <div><div style="color:var(--muted);font-size:12px">Balance</div><div style="font-size:20px;font-weight:700">$${state.balance.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
       <div><div style="color:var(--muted);font-size:12px">Open P&L</div><div style="font-size:20px;font-weight:700">$${openPnl.toFixed(2)}</div></div>
       <div><div style="color:var(--muted);font-size:12px">Margin Used</div><div style="font-size:20px;font-weight:700">$${margin.toFixed(2)}</div></div>
     </div>`;
 }
 
 function renderAll(){
-  document.getElementById('bal').textContent='$'+state.balance.toFixed(2);
+  document.getElementById('bal').textContent='$'+state.balance.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   renderPositions();
   renderHistory();
   renderAccount();
