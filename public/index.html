@@ -174,7 +174,7 @@ function showTab(t){
 async function refreshPrices(){
   // Frankfurter latest for EUR base
   try{
-    const r = await fetch('https://api.frankfurter.app/latest?from=EUR&to=USD,GBP,CHF,JPY,CAD,AUD,NZD');
+    const r = await fetch('https://api.frankfurter.dev/v1/latest?from=EUR&to=USD,GBP,CHF,JPY,CAD,AUD,NZD');
     const j = await r.json();
     const eur = j.rates;
     // build cross rates approx via EUR
@@ -264,7 +264,8 @@ function closePosition(id){
   const pv = p.sym==='XAU/USD'?100 : (p.sym==='USD/JPY'?1000:100000);
   const pnl = diff * p.lots * (p.sym==='XAU/USD'?100: (p.sym.endsWith('JPY')?1000:100000));
   // normalize: lots * pip diff * pip value in USD
-  const pnlUsd = p.side==='Buy' ? (exit-p.entry)*p.lots*100000 : (p.entry-exit)*p.lots*100000;
+  const mult = p.sym==='XAU/USD' ? 100 : (p.sym.endsWith('JPY') ? 1000 : 100000);
+  const pnlUsd = p.side==='Buy' ? (exit-p.entry)*p.lots*mult : (p.entry-exit)*p.lots*mult;
   state.balance += pnlUsd;
   state.history.unshift({time:new Date().toISOString(),sym:p.sym,side:p.side,lots:p.lots,price:exit,pnl:pnlUsd});
   state.positions.splice(idx,1);
@@ -279,7 +280,8 @@ function renderPositions(){
   let html='';
   state.positions.forEach(p=>{
     const cur=prices[p.sym];
-    const pnl = p.side==='Buy' ? (cur-p.entry)*p.lots*100000 : (p.entry-cur)*p.lots*100000;
+    const mult = p.sym==='XAU/USD' ? 100 : (p.sym.endsWith('JPY') ? 1000 : 100000);
+    const pnl = p.side==='Buy' ? (cur-p.entry)*p.lots*mult : (p.entry-cur)*p.lots*mult;
     const cls = pnl>=0?'up':'down';
     html+=`<div class="pos">
       <div class="top"><span>${p.side} ${p.lots} ${p.sym}</span><span class="${cls} pl">${pnl>=0?'+':''}$${pnl.toFixed(2)}</span></div>
@@ -296,6 +298,14 @@ function renderHistory(){
 }
 
 function renderAccount(){
+  var openPnl = state.positions.reduce(function(a,p){
+    var cur = prices[p.sym]||p.entry;
+    var diff = p.side==='Buy' ? (cur-p.entry) : (p.entry-cur);
+    var mult = p.sym==='XAU/USD' ? 100 : (p.sym.endsWith('JPY') ? 1000 : 100000);
+    return a + diff*p.lots*mult;
+  },0);
+  var equity = state.balance + openPnl;
+  var margin = state.positions.reduce(function(a,p){return a+p.lots*1000;},0);
   document.getElementById('accountInfo').innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
       <div><div style="color:var(--muted);font-size:12px">Balance</div><div style="font-size:22px;font-weight:700;color:var(--accent)">$${state.balance.toFixed(2)}</div></div>
@@ -305,10 +315,10 @@ function renderAccount(){
     <p style="margin-top:12px;color:var(--muted);font-size:12px">Starting balance $10,000.00 · Paper trading only. Reset by clearing browser storage.</p>`;
   document.getElementById('portSummary').innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-      <div><div style="color:var(--muted);font-size:12px">Equity</div><div style="font-size:20px;font-weight:700;color:var(--accent)">$${(state.balance+state.positions.reduce((a,p)=>a+((p.side==='Buy'?(prices[p.sym]-p.entry):(p.entry-prices[p.sym]))*p.lots*100000,0)).toFixed(2)}</div></div>
+      <div><div style="color:var(--muted);font-size:12px">Equity</div><div style="font-size:20px;font-weight:700;color:var(--accent)">$${equity.toFixed(2)}</div></div>
       <div><div style="color:var(--muted);font-size:12px">Balance</div><div style="font-size:20px;font-weight:700">$${state.balance.toFixed(2)}</div></div>
-      <div><div style="color:var(--muted);font-size:12px">Open P&L</div><div style="font-size:20px;font-weight:700">${state.positions.reduce((a,p)=>a+((p.side==='Buy'?(prices[p.sym]-p.entry):(p.entry-prices[p.sym]))*p.lots*100000,0).toFixed(2)}</div></div>
-      <div><div style="color:var(--muted);font-size:12px">Margin Used</div><div style="font-size:20px;font-weight:700">$${(state.positions.reduce((a,p)=>a+p.lots*1000,0)).toFixed(2)}</div></div>
+      <div><div style="color:var(--muted);font-size:12px">Open P&L</div><div style="font-size:20px;font-weight:700">$${openPnl.toFixed(2)}</div></div>
+      <div><div style="color:var(--muted);font-size:12px">Margin Used</div><div style="font-size:20px;font-weight:700">$${margin.toFixed(2)}</div></div>
     </div>`;
 }
 
@@ -321,6 +331,7 @@ function renderAll(){
 
 function clearHistory(){state.history=[];save();toast('History cleared');}
 
+document.getElementById('clock').textContent=new Date().toLocaleTimeString();
 setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString();},1000);
 setInterval(refreshPrices,30000);
 
@@ -329,5 +340,3 @@ refreshPrices().then(()=>{renderAll();loadChart(selected);});
 </script>
 </body>
 </html>
-EOF
-echo "written"; wc -l index.html
